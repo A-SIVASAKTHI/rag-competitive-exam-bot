@@ -39,7 +39,6 @@ with col1:
 
     if uploaded_file:
         with st.spinner("Processing PDF..."):
-            # Use real embeddings for better answers
             retriever = process_pdf(uploaded_file, use_real_embeddings=True)
             st.session_state.retriever = retriever
             st.session_state.pdf_name = uploaded_file.name
@@ -50,6 +49,19 @@ with col2:
     st.subheader("❓ Ask Your Question")
     question = st.text_input("Enter your question here")
     submit = st.button("Submit")
+
+# -----------------------------
+# Helper function: format answers (works even for 1-line answers)
+# -----------------------------
+def format_answer(question, raw_answer):
+    """
+    Always returns a structured, exam-ready answer.
+    Even if raw_answer is 1 line.
+    """
+    formatted = f"### {question.capitalize()}\n\n"
+    formatted += raw_answer.strip() + "\n\n"
+    formatted += "**Note:** This is a concise explanation."
+    return formatted
 
 # -----------------------------
 # Answer Section
@@ -68,19 +80,24 @@ if submit:
         questions = [q.strip() for q in questions if q.strip()]
 
         for q in questions:
-            # Build a prompt including retrieved context
-            prompt = f"Answer the question in 5-6 lines using the uploaded PDF content: {q}"
+            # Strong prompt with PDF context
+            prompt = f"""
+            You are a competitive exam assistant. Answer the following question in a structured format:
+            Heading, definition/explanation, key points, example if applicable, note.
+            Question: {q}
+            """
 
-            # Use RAG chain
+            # Use RAG chain to answer
             qa_chain = get_qa_chain(llm, st.session_state.retriever)
             response = qa_chain.run(prompt)
 
-            # Fallback if response too short
-            if not response or len(response.strip()) < 20:
-                response = llm(f"Explain clearly: {q}")
+            # Fallback: if response too short, ask LLM directly
+            if not response or len(response.strip().split()) <= 5:
+                response = llm(prompt)
 
-            final_answer += f"### {q.capitalize()}\n\n{response}\n\n"
+            # Format answer
+            final_answer += format_answer(q, response) + "\n\n"
 
         # Display final answer
-        st.markdown(f"### 📖 Answer from PDF: {st.session_state.pdf_name}")
+        st.markdown(f" 📖 Answer from PDF: {st.session_state.pdf_name}")
         st.markdown(f'<div class="answer-box">{final_answer}</div>', unsafe_allow_html=True)

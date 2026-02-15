@@ -17,10 +17,11 @@ def load_llm():
     """
     pipe = pipeline(
         "text2text-generation",
-        model="google/flan-t5-base",  # Can upgrade to flan-t5-large
+        model="google/flan-t5-base",  # Upgrade to flan-t5-large if needed
         max_length=512
     )
     return HuggingFacePipeline(pipeline=pipe)
+
 
 # -----------------------------
 # Process PDF and create retriever
@@ -34,7 +35,6 @@ def process_pdf(uploaded_file, use_real_embeddings=True):
     Returns:
         retriever : LangChain retriever object
     """
-
     # Save PDF temporarily
     with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
         tmp_file.write(uploaded_file.read())
@@ -44,11 +44,11 @@ def process_pdf(uploaded_file, use_real_embeddings=True):
     loader = PyPDFLoader(file_path)
     documents = loader.load()
 
-    # Split text into chunks (with overlap for context)
+    # Split text into larger chunks
     text_splitter = CharacterTextSplitter(chunk_size=800, chunk_overlap=200)
     docs = text_splitter.split_documents(documents)
 
-    # Choose embeddings
+    # Use real embeddings
     if use_real_embeddings:
         from langchain.embeddings import HuggingFaceEmbeddings
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -61,6 +61,7 @@ def process_pdf(uploaded_file, use_real_embeddings=True):
 
     # Return retriever
     return db.as_retriever(search_kwargs={"k": 3})  # top 3 chunks
+
 
 # -----------------------------
 # Create QA Chain
